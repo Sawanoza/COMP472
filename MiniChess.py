@@ -6,6 +6,8 @@ import argparse
 class MiniChess:
     def __init__(self):
         self.current_game_state = self.init_board()
+        self.unchanged_turns = 0 #Counter for unchanged board state
+        self.last_piece_count = 0 #Stores previous piece count
 
     """
     Initialize the board
@@ -155,9 +157,6 @@ class MiniChess:
         # Return a list of all the valid moves.
         # Implement basic move validation
         # Check for out-of-bounds, correct turn, move legality, etc
-        
-        #MAKE IT SO PIECES (BESIDES KNIGHT) CANT JUMP OVER PIECES
-        #MAKE PAWNS TRANSFORM INTO QUEEN WHEN REACHING THE OTHER SIDE
 
         valid_moves = []
         for row in range(5):
@@ -200,6 +199,30 @@ class MiniChess:
         #Update the board
         game_state["board"][start_row][start_col] = '.'
         game_state["board"][end_row][end_col] = piece
+
+        #Count pieces before checking draw condition
+        piece_count = sum(row.count('.') for row in game_state["board"])
+
+        #Check if a King has been captured
+        board_str = ''.join(''.join(row) for row in game_state["board"])
+        if 'wK' not in board_str:
+            print("Black Wins!")
+            exit(0)
+        elif 'bK' not in board_str:
+            print("White Wins!")
+            exit(0)
+
+        #Check for draw condition
+        if piece_count == self.last_piece_count:
+            self.unchanged_turns += 1
+        else:
+            self.unchanged_turns = 0 #Reset counter if piece was captured
+
+        self.last_piece_count = piece_count
+
+        if self.unchanged_turns == 19: #10 full turns (20 moves)
+            print("Game ends in a draw!")
+            exit(0)
 
         #Switch turns
         game_state["turn"] = "black" if game_state["turn"] == "white" else "white"
