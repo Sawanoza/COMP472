@@ -8,6 +8,42 @@ class MiniChess:
         self.current_game_state = self.init_board()
         self.unchanged_turns = 0 #Counter for unchanged board state
         self.last_piece_count = 0 #Stores previous piece count
+        self.log_file = "game_log.txt" #Logs file
+        self.turn_count = 1 #Keeps track of turn nb
+        self.initialize_log() #Initialize logging
+
+    def initialize_log(self):
+        """Initialize the game log with the starting board."""
+        with open(self.log_file, "w") as f:
+            f.write("Mini Chess Game Log\n\n")
+            f.write("Initial Board Configuration:\n")
+            f.write(self.board_to_string(self.current_game_state) + "\n")
+
+    def log_game_state(self, player, move):
+        """Log the current turn, player move, and updated board state."""
+        start, end = move
+        move_str = f"Move from {chr(start[1] + ord('A'))}{5 - start[0]} to {chr(end[1] + ord('A'))}{5 - end[0]}"
+
+        log_entry = (
+            f"Player: {player.capitalize()}\n"
+            f"Turn #{self.turn_count}\n"
+            f"Action: {move_str}\n"
+            f"Updated Board:\n{self.board_to_string(self.current_game_state)}\n"
+        )
+
+        #Print to console
+        print(f"\nPlayer: {player.capitalize()}")
+        print(f"Turn #{self.turn_count}")
+        print(f"Action: {move_str}")
+        print(f"Updated Board:")
+
+        with open(self.log_file, "a") as f:
+            f.write(log_entry + "\n")
+
+    def board_to_string(self, game_state):
+        """Convert the board into a readable string format."""
+        board_str = "\n".join(" ".join(piece.rjust(3) for piece in row) for row in game_state["board"])
+        return board_str + "\n  A   B   C   D   E\n"
 
     """
     Initialize the board
@@ -200,17 +236,23 @@ class MiniChess:
         game_state["board"][start_row][start_col] = '.'
         game_state["board"][end_row][end_col] = piece
 
+        self.log_game_state(game_state["turn"], move)  #Log move
+
         #Count pieces before checking draw condition
         piece_count = sum(row.count('.') for row in game_state["board"])
 
         #Check if a King has been captured
         board_str = ''.join(''.join(row) for row in game_state["board"])
-        if 'wK' not in board_str:
-            print("Black Wins!")
+        if 'wK' not in board_str or 'bK' not in board_str:
+            winner = "Black" if 'wK' not in board_str else "White"
+            with open(self.log_file, "a") as f:
+                f.write(f"{winner} Wins! In {self.turn_count} turns!\n")
+
+            self.display_board(game_state)
+            print(f"{winner} Wins!")
             exit(0)
-        elif 'bK' not in board_str:
-            print("White Wins!")
-            exit(0)
+
+            
 
         #Check for draw condition
         if piece_count == self.last_piece_count:
@@ -222,10 +264,17 @@ class MiniChess:
 
         if self.unchanged_turns == 19: #10 full turns (20 moves)
             print("Game ends in a draw!")
+            with open(self.log_file, "a") as f:
+                f.write("Game ended in a draw after 10 full turns.\n")
             exit(0)
 
         #Switch turns
+        previous_turn = game_state["turn"]
         game_state["turn"] = "black" if game_state["turn"] == "white" else "white"
+
+        #Increment `turn_count` only after White & Black have played
+        if previous_turn == "black":  #Black just moved, meaning full turn complete
+            self.turn_count += 1
 
         return game_state
 
