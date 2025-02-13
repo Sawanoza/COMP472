@@ -83,8 +83,14 @@ class MiniChess:
         elif piece_type == 'Q': #Queen
             if row_diff != 0 and col_diff != 0 and row_diff != col_diff:
                 return False
+            #Check for obstructions in path
+            if not self.is_path_clear(game_state, start, end):
+                return False
         elif piece_type == 'B': #Bishop
             if row_diff != col_diff:
+                return False
+            #Check for obstructions in path
+            if not self.is_path_clear(game_state, start, end):
                 return False
         elif piece_type == 'N': #Knight
             if not ((row_diff == 2 and col_diff == 1) or (row_diff == 1 and col_diff == 2)):
@@ -95,13 +101,47 @@ class MiniChess:
                     return False
                 if row_diff != 1 or (col_diff != 0 and col_diff != 1):
                     return False
+                if col_diff == 0: #Forward move (NOT capturing)
+                    if target_piece != '.': #Forward piece must be empty
+                        return False
+                elif col_diff == 1: #Diagonal move (capturing)
+                    if target_piece == '.' or target_piece[0] == 'w': #Must capture opponent's piece
+                        return False
             else: #Black pawn
                 if end_row < start_row: #Pawns can only move forward (down)
                     return False
                 if row_diff != 1 or (col_diff != 0 and col_diff != 1):
                     return False
+                if col_diff == 0:  # Forward move (NOT capturing)
+                    if target_piece != '.':  # Forward square must be empty
+                        return False
+                elif col_diff == 1:  # Diagonal move (capturing)
+                    if target_piece == '.' or target_piece[0] == 'b':  #Must capture opponent's piece
+                        return False
 
         return True
+
+
+    """
+    
+    """
+    def is_path_clear(self, game_state, start, end):
+        start_row, start_col = start
+        end_row, end_col = end
+
+        #Determine direction of movement
+        row_step = 1 if end_row > start_row else -1 if end_row < start_row else 0
+        col_step = 1 if end_col > start_col else -1 if end_col < start_col else 0
+
+        #Check each square along path (excluding start & end squares)
+        current_row, current_col = start_row + row_step, start_col + col_step
+        while (current_row != end_row) or (current_col != end_col):
+            if game_state["board"][current_row][current_col] != '.':
+                return False  #Path is blocked
+            current_row += row_step
+            current_col += col_step
+
+        return True  #Path is clear
 
     """
     Returns a list of valid moves
