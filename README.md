@@ -32,5 +32,7 @@ cd COMP472
 python MiniChess.py
 ```
 
-4. Game outputs can be found in the console or in the same folder in a file called "game_log.txt"
-5. (WIP: play modes)
+4. Game outputs can be found in the console or in the same folder in a file called "gameTrace-\<b>-\<t>-\<m>.txt"
+- b: Alpha-Beta (true/false)
+- t: value of the timeout in seconds
+- m: max number of turns
