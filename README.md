@@ -2,7 +2,7 @@
 Project for the COMP 472 course at Concordia University Canada for the Winter 2025 semester
 
 ## Description
-This project implements a simplified version of chess called Mini Chess, played on a 5x5 board. The game features two playres (White and Black) with pieces including a King, Queen, Bishop, Knight and Pawns. The goal is to capture the opponent's King. The project focuses on implementing adversarial search algorithms (Minimax with Alpha-Beta pruning) and heuristic evaluation functions to create an AI that can play Mini Chess autonomously.
+This project implements a simplified version of chess called Mini Chess, played on a 5x5 board. The game features two players (White and Black) with pieces including a King, Queen, Bishop, Knight and Pawns. The goal is to capture the opponent's King. The project focuses on implementing adversarial search algorithms (Minimax with Alpha-Beta pruning) and heuristic evaluation functions to create an AI that can play Mini Chess autonomously.
 
 ## Collaborators
 ### Professor/Instructor:
@@ -32,4 +32,5 @@ cd COMP472
 python MiniChess.py
 ```
 
-4. Additional Instructions (WIP: play modes, game outputs)
+4. Game outputs can be found in the console or in the same folder in a file called "game_log.txt"
+5. (WIP: play modes)
