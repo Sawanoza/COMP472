@@ -149,8 +149,19 @@ class MiniChess:
         start_row, start_col = start
         end_row, end_col = end
         piece = game_state["board"][start_row][start_col]
+
+        #Check if move results in pawn promotion
+        if piece[1] == 'p': #if piece is pawn
+            if piece[0] == 'w' and end_row == 0: #White pawn reaches 5th row (row 0 in board array)
+                piece = 'wQ' #Promote to white Queen
+            elif piece[0] == 'b' and end_row == 4: #Black pawn reaches 1st row (row 4 in board array)
+                piece = 'bQ' #Promote to black Queen
+
+        #Update the board
         game_state["board"][start_row][start_col] = '.'
         game_state["board"][end_row][end_col] = piece
+
+        #Switch turns
         game_state["turn"] = "black" if game_state["turn"] == "white" else "white"
 
         return game_state
