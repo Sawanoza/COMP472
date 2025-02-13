@@ -8,7 +8,7 @@ class MiniChess:
         self.current_game_state = self.init_board()
         self.unchanged_turns = 0 #Counter consecutive turns with no piece capture (for draw detection)
         self.last_piece_count = 0 #Stores previous turn's empty square count
-        self.log_file = "game_log.txt" #Log file
+        self.log_file = "gameTrace.txt" #Log file
         self.turn_count = 1 #Keeps track of turn nb (full turns)
         self.initialize_log() #Initializes log file with starting board state
 
