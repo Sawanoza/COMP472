@@ -117,8 +117,8 @@ class MiniChess:
 
         #Create a string with player & details
         base_entry = [
-            f"Player: {player.capitalize()}",
-            f"Turn #{self.turn_count if player == 'black' else self.turn_count}",
+            f"\nPlayer: {player.capitalize()}",
+            f"Turn #{self.turn_count - 1 if player == 'black' else self.turn_count}",
             f"Action: {move_str}"
         ]
 
