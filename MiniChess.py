@@ -431,7 +431,7 @@ class MiniChess:
                     f.write(f"{winner} Wins! In {self.turn_count} turns!\n")
 
                 self.display_board(new_state) # Show final board state
-                print(f"{winner} Wins!") # Print win message
+                print(f"{winner} Wins! In {self.turn_count} turns!") # Print win message
                 exit(0)
 
             # Check for draw condition (specified number of turns with no piece captured)
