@@ -19,7 +19,7 @@ class MiniChess:
                 self.player1_type = mode_parts[0]
                 self.player2_type = mode_parts[1]
                 break
-            print("Invalid mode. Valid options: H-H, H-AI, AI-H, AI-AI.")
+            print("Invalid mode. Valid options: H-H, H-AI, AI-H, AI-AI.\n")
 
         #2) Check if mode is H-H
         if self.mode == "H-H":
@@ -38,7 +38,7 @@ class MiniChess:
                         break
                 except ValueError:
                     pass
-                print("Invalid number. Please enter a positive integer.")
+                print("Invalid number. Please enter a positive integer.\n")
 
             #b) Ask for AI timeout
             while True:
@@ -50,7 +50,7 @@ class MiniChess:
                         break
                 except ValueError:
                     pass
-                print("Invalid timeout. Please enter a positive integer.")
+                print("Invalid timeout. Please enter a positive integer.\n")
 
             #c) Ask for minimax or alpha-beta
             while True:
@@ -58,7 +58,7 @@ class MiniChess:
                 if ab_str in ("true", "false"):
                     self.use_alpha_beta = (ab_str == "true")
                     break
-                print("Please type 'true' or 'false'.")
+                print("Please type 'true' or 'false'.\n")
 
             #d) Ask for heuristic (e0, e1, e2)
             while True:
@@ -73,7 +73,7 @@ class MiniChess:
                     else:
                         self.heuristic_func = self.heuristic_e2
                     break
-                print("Invalid choice. Valid heuristics: e0, e1, e2.")
+                print("Invalid choice. Valid heuristics: e0, e1, e2.\n")
         
         
         self.current_game_state = self.init_board()
@@ -116,7 +116,7 @@ class MiniChess:
         move_str = f"Move from {chr(start[1] + ord('A'))}{5 - start[0]} to {chr(end[1] + ord('A'))}{5 - end[0]}"
 
         #Create a string with player & details
-        log_entry = [
+        base_entry = [
             f"Player: {player.capitalize()}",
             f"Turn #{self.turn_count if player == 'black' else self.turn_count}",
             f"Action: {move_str}"
@@ -125,17 +125,23 @@ class MiniChess:
         #If AI move, log search details
         if (player == "white" and self.player1_type == "AI") or (player == "black" and self.player2_type == "AI"):
             if time_taken is not None:
-                log_entry.append(f"Time for this action: {time_taken:.5f} sec")
+                base_entry.append(f"Time for this action: {time_taken:.5f} sec")
             if heuristic_score is not None:
-                log_entry.append(f"Heuristic score: {heuristic_score}")
+                base_entry.append(f"Heuristic score: {heuristic_score}")
             if search_score is not None:
-                log_entry.append(f"{'Alpha-beta' if self.use_alpha_beta else 'Minimax'} search score: {search_score}")
+                base_entry.append(f"{'Alpha-beta' if self.use_alpha_beta else 'Minimax'} search score: {search_score}")
         
-        #updated board
-        log_entry.append(f"Updated Board:\n{self.board_to_string(self.current_game_state)}")
+        #text line for the updated board
+        updated_board_line = f"Updated Board:\n{self.board_to_string(self.current_game_state)}"
+
+        #Build final log entry (including updated board)
+        log_entry = base_entry + [updated_board_line]
+
+        #Build console entry (EXCLUDING updated board)
+        console_entry = base_entry[:]  #copy
 
         #Print to console
-        for line in log_entry:
+        for line in console_entry:
             print(line)
 
         #Add AI cumulative statistics if applicable
