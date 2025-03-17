@@ -21,9 +21,9 @@ class MiniChess:
         #2) Check if mode is H-H
         if self.mode == "H-H":
             #If no AI, default max_turns, AI timeout, alpha-beta, and heuristic
-            self.max_turns = 999
-            self.timeout = "X"
-            self.use_alpha_beta = False
+            self.max_turns = 999 #No limit in H vs H games
+            self.timeout = "X" #No AI in H vs H games
+            self.use_alpha_beta = False #No AI in H vs H games
         else:
             #a) Ask for max turns
             while True:
