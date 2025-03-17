@@ -62,7 +62,7 @@ class MiniChess:
 
             #d) Ask for heuristic (e0, e1, e2)
             while True:
-                heuristic_str = input("Enter heuristic (e0, e1 (WIP), e2 (WIP)): ").strip().lower()
+                heuristic_str = input("Enter heuristic (e0, e1, e2): ").strip().lower()
                 if heuristic_str in {"e0", "e1", "e2"}:
                     self.heuristic_name = heuristic_str
                     #set actual function pointer based on heuristic chosen
@@ -527,6 +527,260 @@ class MiniChess:
                 elif cell == 'bK':
                     black_score += 999
         return white_score - black_score
+    
+    def heuristic_e1(self, game_state):
+        """
+        Advanced heuristic e1:
+        Base material values (same as e0) plus positional bonuses:
+        - Pawns get bonus for advancement toward promotion
+        - Knights and Bishops get bonus for central positions
+        - Queens get bonus for mobility (number of valid moves)
+        - Penalize pieces that are under attack
+        """
+        # Base material values (same as e0)
+        material_score = self.heuristic_e0(game_state)
+        
+        # Position and mobility enhancements
+        positional_score = 0
+        
+        # Check attacks on pieces
+        attacks = self.get_attacked_positions(game_state)
+        
+        # Evaluate board position
+        for row in range(5):
+            for col in range(5):
+                piece = game_state["board"][row][col]
+                if piece == '.':
+                    continue
+                
+                color = piece[0]  # 'w' or 'b'
+                piece_type = piece[1]  # 'p', 'N', 'B', 'Q', 'K'
+                multiplier = 1 if color == 'w' else -1
+                
+                # Pawn advancement bonus (increasing as they get closer to promotion)
+                if piece_type == 'p':
+                    if color == 'w':
+                        # White pawns want to reach row 0 (value increases as row decreases)
+                        advancement_bonus = (4 - row) * 0.2
+                    else:
+                        # Black pawns want to reach row 4 (value increases as row increases)
+                        advancement_bonus = row * 0.2
+                    positional_score += advancement_bonus * multiplier
+                
+                # Center control bonus for Knights and Bishops
+                if piece_type in ['N', 'B']:
+                    # Bonus for being close to center
+                    center_distance = abs(row - 2) + abs(col - 2)
+                    center_bonus = (4 - center_distance) * 0.15
+                    positional_score += center_bonus * multiplier
+                
+                # Mobility bonus for Queens
+                if piece_type == 'Q':
+                    # Temporarily switch turn to calculate Queen's mobility
+                    original_turn = game_state["turn"]
+                    temp_state = copy.deepcopy(game_state)
+                    temp_state["turn"] = color
+                    
+                    queen_moves = 0
+                    for end_row in range(5):
+                        for end_col in range(5):
+                            move = ((row, col), (end_row, end_col))
+                            if self.is_valid_move(temp_state, move):
+                                queen_moves += 1
+                    
+                    mobility_bonus = queen_moves * 0.1
+                    positional_score += mobility_bonus * multiplier
+                
+                # Penalty for being under attack
+                position = (row, col)
+                if position in attacks:
+                    attackers = attacks[position]
+                    for attacker in attackers:
+                        attacker_piece = game_state["board"][attacker[0]][attacker[1]]
+                        # If attacker is from opposite color
+                        if attacker_piece[0] != color:
+                            # Higher penalty for more valuable pieces
+                            piece_value = 1 if piece_type == 'p' else 3 if piece_type in ['N', 'B'] else 9 if piece_type == 'Q' else 20
+                            attack_penalty = piece_value * 0.15
+                            positional_score -= attack_penalty * multiplier
+        
+        return material_score + positional_score
+
+    def heuristic_e2(self, game_state):
+        """
+        Advanced heuristic e2:
+        Builds on e1 and adds:
+        - King safety (penalize exposed kings)
+        - Piece coordination (bonus for pieces protecting each other)
+        - Pawn structure (bonus for connected pawns)
+        - Control of central squares
+        - Bonus for having the initiative
+        """
+        # Start with e1 evaluation
+        base_score = self.heuristic_e1(game_state)
+        
+        # Additional strategic considerations
+        strategic_score = 0
+        
+        # Get all attacks and defenses
+        attacks = self.get_attacked_positions(game_state)
+        defenses = self.get_defended_positions(game_state)
+        
+        # Central control evaluation
+        central_squares = [(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)]
+        white_central_control = 0
+        black_central_control = 0
+        
+        for square in central_squares:
+            row, col = square
+            # Count attackers of each color for this square
+            white_attackers = sum(1 for pos in attacks.get(square, []) if game_state["board"][pos[0]][pos[1]][0] == 'w')
+            black_attackers = sum(1 for pos in attacks.get(square, []) if game_state["board"][pos[0]][pos[1]][0] == 'b')
+            
+            # Award points for controlling central squares
+            if white_attackers > black_attackers:
+                white_central_control += 0.15
+            elif black_attackers > white_attackers:
+                black_central_control += 0.15
+        
+        strategic_score += white_central_control - black_central_control
+        
+        # Evaluate board position with additional metrics
+        for row in range(5):
+            for col in range(5):
+                piece = game_state["board"][row][col]
+                if piece == '.':
+                    continue
+                
+                color = piece[0]  # 'w' or 'b'
+                piece_type = piece[1]  # 'p', 'N', 'B', 'Q', 'K'
+                multiplier = 1 if color == 'w' else -1
+                position = (row, col)
+                
+                # King safety
+                if piece_type == 'K':
+                    # Count attacks near the king
+                    king_zone = []
+                    for r in range(max(0, row-1), min(5, row+2)):
+                        for c in range(max(0, col-1), min(5, col+2)):
+                            king_zone.append((r, c))
+                    
+                    # Count enemy attacks in king zone
+                    enemy_attacks = 0
+                    for zone_pos in king_zone:
+                        if zone_pos in attacks:
+                            for attacker_pos in attacks[zone_pos]:
+                                attacker = game_state["board"][attacker_pos[0]][attacker_pos[1]]
+                                if attacker[0] != color:
+                                    enemy_attacks += 1
+                    
+                    # Penalize for enemy attacks in king zone
+                    king_safety_penalty = enemy_attacks * 0.2
+                    strategic_score -= king_safety_penalty * multiplier
+                
+                # Piece coordination (bonus for defended pieces)
+                if position in defenses:
+                    defenders = defenses[position]
+                    friendly_defenders = sum(1 for def_pos in defenders 
+                                            if game_state["board"][def_pos[0]][def_pos[1]][0] == color)
+                    coordination_bonus = friendly_defenders * 0.1
+                    strategic_score += coordination_bonus * multiplier
+                
+                # Pawn structure (connected pawns)
+                if piece_type == 'p':
+                    # Check for adjacent pawns of same color
+                    adjacent_pawns = 0
+                    for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                        r, c = row + dr, col + dc
+                        if 0 <= r < 5 and 0 <= c < 5:
+                            adj_piece = game_state["board"][r][c]
+                            if adj_piece != '.' and adj_piece[0] == color and adj_piece[1] == 'p':
+                                adjacent_pawns += 1
+                    
+                    pawn_structure_bonus = adjacent_pawns * 0.15
+                    strategic_score += pawn_structure_bonus * multiplier
+        
+        # Initiative bonus (having the move is an advantage)
+        if game_state["turn"] == 'white':
+            strategic_score += 0.1
+        else:
+            strategic_score -= 0.1
+        
+        return base_score + strategic_score
+
+    def get_attacked_positions(self, game_state):
+        """
+        Helper method to find all positions that are under attack
+        Returns a dictionary mapping positions to lists of attacker positions
+        """
+        attacks = {}
+        
+        # Temporarily set turn to white to check white attacks
+        temp_state = copy.deepcopy(game_state)
+        temp_state["turn"] = "white"
+        
+        # Check white attacks
+        for row in range(5):
+            for col in range(5):
+                piece = game_state["board"][row][col]
+                if piece != '.' and piece[0] == 'w':
+                    for end_row in range(5):
+                        for end_col in range(5):
+                            move = ((row, col), (end_row, end_col))
+                            if self.is_valid_move(temp_state, move):
+                                attacked_pos = (end_row, end_col)
+                                if attacked_pos not in attacks:
+                                    attacks[attacked_pos] = []
+                                attacks[attacked_pos].append((row, col))
+        
+        # Temporarily set turn to black to check black attacks
+        temp_state["turn"] = "black"
+        
+        # Check black attacks
+        for row in range(5):
+            for col in range(5):
+                piece = game_state["board"][row][col]
+                if piece != '.' and piece[0] == 'b':
+                    for end_row in range(5):
+                        for end_col in range(5):
+                            move = ((row, col), (end_row, end_col))
+                            if self.is_valid_move(temp_state, move):
+                                attacked_pos = (end_row, end_col)
+                                if attacked_pos not in attacks:
+                                    attacks[attacked_pos] = []
+                                attacks[attacked_pos].append((row, col))
+        
+        return attacks
+
+    def get_defended_positions(self, game_state):
+        """
+        Helper method to find all positions that are defended by friendly pieces
+        Returns a dictionary mapping positions to lists of defender positions
+        """
+        defenses = {}
+        attacks = self.get_attacked_positions(game_state)
+        
+        # Check if pieces are defended (attacked by friendly pieces)
+        for row in range(5):
+            for col in range(5):
+                piece = game_state["board"][row][col]
+                if piece == '.':
+                    continue
+                
+                color = piece[0]
+                position = (row, col)
+                
+                if position in attacks:
+                    defenders = []
+                    for attacker_pos in attacks[position]:
+                        attacker = game_state["board"][attacker_pos[0]][attacker_pos[1]]
+                        if attacker[0] == color:  # Same color = defender
+                            defenders.append(attacker_pos)
+                    
+                    if defenders:
+                        defenses[position] = defenders
+        
+        return defenses
 
     def play(self):
         print(f"\nWelcome to Mini Chess! Game mode: {self.mode}")
