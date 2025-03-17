@@ -1,8 +1,8 @@
 import copy
 from collections import defaultdict
 
-#Import AIPlayer
-from AIPlayer import AIPlayer
+#Import AI
+from AI import AI
 
 class MiniChess:
     def __init__(self):
@@ -809,8 +809,8 @@ class MiniChess:
             is_ai_turn = (current_player == "white" and self.player1_type == "AI") or (current_player == "black" and self.player2_type == "AI")
             
             if is_ai_turn:
-                #AI's turn: use AIPlayer to generate move
-                ai_player = AIPlayer(self, self.heuristic_func)
+                #AI's turn: use AIP to generate move
+                ai_player = AI(self, self.heuristic_func)
                 print(f"AI thinking (max {self.timeout} seconds)...")
                 move, search_score, time_taken, explored, states_by_depth = ai_player.get_move(self.current_game_state) #AI chosen move, Minimax or A-B evaluation, time AI took to decide, states AI analyzed, search breakdown per depth
                 

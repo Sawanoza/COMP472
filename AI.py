@@ -1,6 +1,6 @@
 import time
 
-class AIPlayer:
+class AI:
     ###Initialize the AI player
     def __init__(self, game, heuristic_function, max_depth=3):
         self.game = game #store minichess instance to access game-related functions
