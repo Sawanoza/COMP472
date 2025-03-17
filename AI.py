@@ -7,7 +7,7 @@ class AI:
         self.heuristic = heuristic_function #stores selected heuristic function for move evaluation
         self.max_depth = max_depth #limits how deep AI searches
         self.use_alpha_beta = game.use_alpha_beta #determine AI search strategy (True -> Alpha-Beta Pruning | False -> Regular Minimax)
-        self.max_time = game.timeout #AI move timeout
+        self.max_time = game.timeout - 0.01 #AI move timeout - 10ms buffer
 
         self.states_explored = 0 #Keep count of how many game states AI analyzes
         self.states_by_depth = {i: 0 for i in range(1, max_depth + 1)} #Dictionary stores how many nodes were explored at each depth (ex: depth 3 = {1: 0, 2: 0, 3: 0})
