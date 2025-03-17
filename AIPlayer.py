@@ -5,7 +5,7 @@ class AIPlayer:
     def __init__(self, game, heuristic_function, max_depth=3):
         """
         :param game: The MiniChess instance (provides valid_moves, make_move, etc.)
-        :param heuristic_function: e.g., game.heuristic_e0
+        :param heuristic_function: e0, e1, e2
         :param max_depth: Depth limit for minimax
         :param use_alpha_beta: Boolean to switch between minimax or alpha-beta
         :param max_time: Time limit (seconds) for the AI move
@@ -23,7 +23,7 @@ class AIPlayer:
 
     def get_move(self, game_state):
         """
-        Returns the best move the AI can find within max_depth or max_time.
+        Returns best move AI can find within max_depth or max_time.
         :return: (best_move, best_score, elapsed_time, total_states_explored, states_by_depth)
         """
         self.start_time = time.time()
@@ -49,7 +49,7 @@ class AIPlayer:
 
     def minimax(self, game_state, depth, is_maximizing):
         """
-        Basic minimax without alpha-beta pruning.
+        Basic minimax without alpha-beta pruning
         :return: (score, move)
         """
         self.states_explored += 1
@@ -94,7 +94,7 @@ class AIPlayer:
 
     def alpha_beta(self, game_state, depth, alpha, beta, is_maximizing):
         """
-        Minimax with alpha-beta pruning.
+        Minimax with alpha-beta pruning
         :return: (score, move)
         """
         self.states_explored += 1

@@ -392,7 +392,7 @@ class MiniChess:
         - game_state:   dictionary | Dictionary representing the modified game state
     """
     #Execute a move, update board, check win/draw conditions, switch turns
-    def make_move(self, game_state, move, update_game=True):
+    def make_move(self, game_state, move, update_game=True, time_taken=None, heuristic_score=None, search_score=None):
         #Create deep copy of game state to not modify original (AI needs to evaluate potential moves without changing actual game state)
         if update_game:
             new_state = game_state
@@ -417,6 +417,17 @@ class MiniChess:
         new_state["board"][start_row][start_col] = '.' #Clear old pos
         new_state["board"][end_row][end_col] = piece #Place piece in new pos
 
+        #Store current player (logs)
+        current_player = new_state["turn"]
+
+        #Switch turns/player
+        previous_turn = new_state["turn"]
+        new_state["turn"] = "black" if new_state["turn"] == "white" else "white"
+
+        #Increment `turn_count` only after White & Black have played
+        if update_game and previous_turn == "black": #black just moved, meaning full turn complete
+            self.turn_count += 1
+
         if update_game:
             # Count pieces on the board to track game progression
             piece_count = sum(1 for row in new_state["board"] for cell in row if cell != '.')
@@ -426,43 +437,44 @@ class MiniChess:
             if 'wK' not in board_str or 'bK' not in board_str: # If a king is missing
                 winner = "Black" if 'wK' not in board_str else "White" # Determine winner
                 
-                # Log & display win message
+                #log winning move
+                self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
+
+                #Log & display win message
                 with open(self.log_file, "a") as f:
                     f.write(f"{winner} Wins! In {self.turn_count} turns!\n")
 
-                self.display_board(new_state) # Show final board state
-                print(f"{winner} Wins! In {self.turn_count} turns!") # Print win message
+                self.display_board(new_state) #Show final board state
+                print(f"{winner} Wins! In {self.turn_count} turns!") #Print win message
                 exit(0)
 
-            # Check for draw condition (specified number of turns with no piece captured)
+            #Check for draw condition (specified number of turns with no piece captured)
             if piece_count == self.last_piece_count:
-                self.unchanged_turns += 1 # Increment unchanged turn counter if no piece captured
+                self.unchanged_turns += 1 #Increment unchanged turn counter if no piece captured
             else:
-                self.unchanged_turns = 0 # Reset counter if piece was captured
+                self.unchanged_turns = 0 #Reset counter if piece was captured
 
-            self.last_piece_count = piece_count # Store current piece count for next turn
+            self.last_piece_count = piece_count #Store current piece count for next turn
 
-            # If max_turns full turns pass without capture -> draw
+            #If max_turns full turns pass without capture -> draw
             if self.unchanged_turns >= self.max_turns * 2:
+                #Log move before declaring draw
+                self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
+
                 print(f"Game ends in a draw after {self.max_turns} turns without piece capture!")
                 with open(self.log_file, "a") as f:
                     f.write(f"Game ended in a draw after {self.max_turns} full turns without piece capture.\n")
                 exit(0)
             
             # If we've reached the maximum number of turns overall -> draw
-            if self.turn_count >= self.max_turns and new_state["turn"] == "black":
+            if self.turn_count > self.max_turns and current_player == "black": #only check AFTER black has moved on final turn
+                #Log move before declaring draw
+                self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
+                self.display_board(new_state)
                 print(f"Game ends in a draw after reaching maximum {self.max_turns} turns!")
                 with open(self.log_file, "a") as f:
                     f.write(f"Game ended in a draw after reaching maximum {self.max_turns} turns.\n")
                 exit(0)
-
-        #Switch turns/player
-        previous_turn = new_state["turn"]
-        new_state["turn"] = "black" if new_state["turn"] == "white" else "white"
-
-        #Increment `turn_count` only after White & Black have played
-        if update_game and previous_turn == "black":  #black just moved, meaning full turn complete
-            self.turn_count += 1
 
         return new_state #return updated game state
 
@@ -520,39 +532,41 @@ class MiniChess:
         print(f"\nWelcome to Mini Chess! Game mode: {self.mode}")
         
         # Continue until max turns reached or game ends (win/draw)
-        while self.turn_count <= self.max_turns:
+        #Allow game to continue through the FULL final turn
+        while self.turn_count <= self.max_turns or (self.turn_count == self.max_turns + 1 and self.current_game_state["turn"] == "white"):
             self.display_board(self.current_game_state)
             current_player = self.current_game_state["turn"]
             print(f"{current_player.capitalize()}'s turn ({self.turn_count}/{self.max_turns})")
             
-            # Determine if current player is human or AI
-            is_ai_turn = (current_player == "white" and self.player1_type == "AI") or \
-                        (current_player == "black" and self.player2_type == "AI")
+            #Determine if current player is human or AI
+            is_ai_turn = (current_player == "white" and self.player1_type == "AI") or (current_player == "black" and self.player2_type == "AI")
             
             if is_ai_turn:
-                # AI's turn - use AIPlayer to generate move
+                #AI's turn: use AIPlayer to generate move
                 ai_player = AIPlayer(self, self.heuristic_func)
                 
                 print(f"AI thinking (max {self.timeout} seconds)...")
                 move, search_score, time_taken, explored, states_by_depth = ai_player.get_move(self.current_game_state)
                 
-                # Update AI stats
+                #Update AI stats
                 self.states_explored += explored
                 for depth, count in states_by_depth.items():
                     self.states_by_depth[depth] += count
                 
-                # Calculate heuristic score for logging
+                #Calculate heuristic score for logging
                 heuristic_score = self.heuristic_func(self.current_game_state)
                 
                 print(f"AI chooses: {chr(move[0][1] + ord('A'))}{5 - move[0][0]} to {chr(move[1][1] + ord('A'))}{5 - move[1][0]}")
                 
                 # Make the move and log with AI stats
                 new_state = copy.deepcopy(self.current_game_state)
-                self.current_game_state = self.make_move(new_state, move)
-                self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
+                self.current_game_state = self.make_move(new_state, move, True, time_taken, heuristic_score, search_score)
+                #Only log here if game isn't going to end (since make_move handles logging for end conditions)
+                if self.turn_count <= self.max_turns or (self.current_game_state["turn"] != "white"):
+                    self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
                 
             else:
-                # Human's turn - get input from console
+                # Human's turn: get input from console
                 while True:
                     move_input = input("Enter your move (e.g., 'B2 B3') or 'exit' to quit: ")
                     
@@ -573,25 +587,20 @@ class MiniChess:
                         print("Invalid move. Try again.")
                         continue
                     
-                    # Make the move
+                    #Make the move
                     new_state = copy.deepcopy(self.current_game_state)
                     self.current_game_state = self.make_move(new_state, move)
-
-                    #log move
-                    self.log_game_state(current_player, move)
-
+                    
+                    #Only log here if game isn't going to end (since make_move handles logging for end conditions)
+                    if self.turn_count <= self.max_turns or (self.current_game_state["turn"] != "white"):
+                        self.log_game_state(current_player, move)
                     break
             
-            # Check if max turns reached
-            if self.turn_count > self.max_turns:
-                print(f"Game ended after {self.max_turns} turns. It's a draw!")
-                with open(self.log_file, "a") as f:
-                    f.write(f"Game ended in a draw after reaching maximum turns ({self.max_turns}).\n")
-                break
-        
-        # Final board display
+        # Check if max turns reached
         self.display_board(self.current_game_state)
-        print("Game complete!")
+        print(f"Game ended after {self.max_turns} turns. It's a draw!")
+        with open(self.log_file, "a") as f:
+            f.write(f"Game ended in a draw after reaching maximum turns ({self.max_turns}).\n")
 
 if __name__ == "__main__":
     game = MiniChess()
