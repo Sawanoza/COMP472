@@ -1,7 +1,4 @@
-import math
 import copy
-import time
-import argparse
 from collections import defaultdict
 
 #Import AIPlayer
@@ -14,8 +11,8 @@ class MiniChess:
         while True:
             play_mode = input("Enter play mode (H-H, H-AI, AI-H, AI-AI): ").strip().upper()
             if play_mode in valid_modes:
-                self.mode = play_mode
-                mode_parts = play_mode.split("-")
+                self.mode = play_mode #store selected mode
+                mode_parts = play_mode.split("-") #split mode into player1 and player2 types
                 self.player1_type = mode_parts[0]
                 self.player2_type = mode_parts[1]
                 break
@@ -64,8 +61,8 @@ class MiniChess:
             while True:
                 heuristic_str = input("Enter heuristic (e0, e1, e2): ").strip().lower()
                 if heuristic_str in {"e0", "e1", "e2"}:
-                    self.heuristic_name = heuristic_str
-                    #set actual function pointer based on heuristic chosen
+                    self.heuristic_name = heuristic_str #store heuristic choice
+                    #assign corresponding heuristic function
                     if heuristic_str == "e0":
                         self.heuristic_func = self.heuristic_e0
                     elif heuristic_str == "e1":
@@ -75,15 +72,15 @@ class MiniChess:
                     break
                 print("Invalid choice. Valid heuristics: e0, e1, e2.\n")
         
-        
-        self.current_game_state = self.init_board()
+        #Initialize game state
+        self.current_game_state = self.init_board() #Create inital board setup
         self.unchanged_turns = 0 #Counter consecutive turns with no piece capture (for draw detection)
         self.last_piece_count = 12 #Stores previous turn's piece count (start with 12 pieces)
         self.turn_count = 1 #Keeps track of turn nb (full turns)
 
         #stats for AI
-        self.states_explored = 0
-        self.states_by_depth = defaultdict(int)
+        self.states_explored = 0 #Counter of states evaluated by AI
+        self.states_by_depth = defaultdict(int) #Dictionary to track states explored at each depth
 
         #Create log file name based on parameters
         self.log_file = f"gameTrace-{str(self.use_alpha_beta).lower()}-{self.timeout}-{self.max_turns}.txt"
@@ -98,7 +95,7 @@ class MiniChess:
             f.write("Game Parameters:\n")
             f.write(f"Play mode: {self.mode}\n")
             
-            #Log AI-specific info if applicable
+            #Log AI-specific info if at least 1 player is AI
             if 'AI' in self.mode:
                 f.write(f"Max turns: {self.max_turns}\n")
                 f.write(f"Timeout: {self.timeout} seconds\n")
@@ -108,8 +105,9 @@ class MiniChess:
             f.write("\nInitial Board Configuration:\n")
             f.write(self.board_to_string(self.current_game_state) + "\n\n")
 
-    ###Logs the current turn, player move and updated board state to a file
+    ###Logs the current game state, including player moves and AI specific details if applicable
     def log_game_state(self, player, move, time_taken=None, heuristic_score=None, search_score=None):
+        #Unpack move coordinates
         start, end = move
         
         #Convert start and end pos to chess notation (ex: start=(4, 0) to A1)
@@ -138,7 +136,7 @@ class MiniChess:
         log_entry = base_entry + [updated_board_line]
 
         #Build console entry (EXCLUDING updated board)
-        console_entry = base_entry[:]  #copy
+        console_entry = base_entry[:]  #copy of base_entry
 
         #Print to console
         for line in console_entry:
@@ -156,7 +154,7 @@ class MiniChess:
 
     ###Generate statistics about AI performance for logs
     def get_ai_stats(self):
-        stats = []
+        stats = [] #List to store AI stats
         
         #Format numbers with K (1000), M (1000000) suffixes
         def format_number(num):
@@ -172,23 +170,23 @@ class MiniChess:
         
         #States by depth
         by_depth = []
-        for depth, count in sorted(self.states_by_depth.items()):
+        for depth, count in sorted(self.states_by_depth.items()): #sort by depth level (keys -> depth level | values -> nb states explored), .items() will return K-V pairs from dictionary 
             by_depth.append(f"{depth}={format_number(count)}")
         stats.append(f"Cumulative states explored by depth: {' '.join(by_depth)}")
         
         #Percentage by depth
-        total = sum(self.states_by_depth.values())
-        if total > 0:
+        total = sum(self.states_by_depth.values()) #calculate total nb states explored
+        if total > 0: #makes sure at least 1 state was explored
             percentages = []
-            for depth, count in sorted(self.states_by_depth.items()):
-                if count > 0:  #Only include non-zero counts
+            for depth, count in sorted(self.states_by_depth.items()): #iterate through states_by_depth in ascending order of depth levels
+                if count > 0:  #Only include depth levels where states were explored
                     percentages.append(f"{depth}={count/total*100:.1f}%")
             stats.append(f"Cumulative % states explored by depth: {' '.join(percentages)}")
         
         #Average branching factor (Approximate: total nodes / non-leaf nodes)
         if total > 0:
-            leaf_nodes = self.states_by_depth.get(max(self.states_by_depth.keys()), 0)
-            non_leaf_nodes = total - leaf_nodes
+            leaf_nodes = self.states_by_depth.get(max(self.states_by_depth.keys()), 0) #identify leaf nodes (deepest depth level in search tree)
+            non_leaf_nodes = total - leaf_nodes #calculate non-leaf nodes (total nodes - deepest level nodes)
             avg_branching = total / max(1, non_leaf_nodes)
             stats.append(f"Average branching factor: {avg_branching:.1f}")
         
@@ -247,6 +245,7 @@ class MiniChess:
         - boolean representing the validity of the move
     """
     def is_valid_move(self, game_state, move):
+        #Unpack move into start and end positions
         start, end = move
         start_row, start_col = start
         end_row, end_col = end
@@ -257,7 +256,7 @@ class MiniChess:
         if not (0 <= end_row < 5 and 0 <= end_col < 5):
             return False
 
-        #Identify start/end
+        #Identify piece at start/end pos
         piece = game_state["board"][start_row][start_col]
         target_piece = game_state["board"][end_row][end_col]
 
@@ -266,7 +265,7 @@ class MiniChess:
             return False
 
         #Check if piece belongs to current player
-        if piece[0] != game_state["turn"][0]:
+        if piece[0] != game_state["turn"][0]: #'w' for white, 'b' for black
             return False
 
         #Check if target square is occupied by player's own piece
@@ -375,9 +374,9 @@ class MiniChess:
                     #Generate all possible moves for this piece
                     for end_row in range(5):
                         for end_col in range(5):
-                            move = ((row, col), (end_row, end_col)) # Current pos to possible end pos
+                            move = ((row, col), (end_row, end_col)) #Current pos to possible end pos
 
-                            #If move is valid, add it to list
+                            #If move valid, add to list
                             if self.is_valid_move(game_state, move):
                                 valid_moves.append(move)
         return valid_moves
@@ -395,9 +394,9 @@ class MiniChess:
     def make_move(self, game_state, move, update_game=True, time_taken=None, heuristic_score=None, search_score=None):
         #Create deep copy of game state to not modify original (AI needs to evaluate potential moves without changing actual game state)
         if update_game:
-            new_state = game_state
+            new_state = game_state #modify original state
         else:
-            new_state = copy.deepcopy(game_state)
+            new_state = copy.deepcopy(game_state) #work on a copy
         
         start = move[0] #Starting pos (row, col)
         end = move[1] #Destination pos (row, col)
@@ -417,7 +416,7 @@ class MiniChess:
         new_state["board"][start_row][start_col] = '.' #Clear old pos
         new_state["board"][end_row][end_col] = piece #Place piece in new pos
 
-        #Store current player (logs)
+        #Store current player (for logs)
         current_player = new_state["turn"]
 
         #Switch turns/player
@@ -429,13 +428,13 @@ class MiniChess:
             self.turn_count += 1
 
         if update_game:
-            # Count pieces on the board to track game progression
+            #Count pieces on the board to track game progression
             piece_count = sum(1 for row in new_state["board"] for cell in row if cell != '.')
 
-            # Check if a King has been captured (winning condition)
+            #Check if a King has been captured (winning condition)
             board_str = ''.join(''.join(row) for row in new_state["board"])
-            if 'wK' not in board_str or 'bK' not in board_str: # If a king is missing
-                winner = "Black" if 'wK' not in board_str else "White" # Determine winner
+            if 'wK' not in board_str or 'bK' not in board_str: #If a king is missing
+                winner = "Black" if 'wK' not in board_str else "White" #Determine winner
                 
                 #log winning move
                 self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
@@ -456,17 +455,17 @@ class MiniChess:
 
             self.last_piece_count = piece_count #Store current piece count for next turn
 
-            #If max_turns full turns pass without capture -> draw
-            if self.unchanged_turns >= self.max_turns * 2:
+            #If 10 full turns pass (20 turns) without capture -> draw
+            if self.unchanged_turns >= 20:
                 #Log move before declaring draw
                 self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
-
-                print(f"Game ends in a draw after {self.max_turns} turns without piece capture!")
+                self.display_board(new_state)
+                print(f"Game ends in a draw after 10 turns without piece capture!")
                 with open(self.log_file, "a") as f:
-                    f.write(f"Game ended in a draw after {self.max_turns} full turns without piece capture.\n")
+                    f.write(f"Game ended in a draw after 10 full turns without piece capture.\n")
                 exit(0)
             
-            # If we've reached the maximum number of turns overall -> draw
+            #If we've reached the maximum number of turns overall -> draw
             if self.turn_count > self.max_turns and current_player == "black": #only check AFTER black has moved on final turn
                 #Log move before declaring draw
                 self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
@@ -501,143 +500,152 @@ class MiniChess:
         Basic material-based heuristic e0:
           Pawn=1, Bishop=3, Knight=3, Queen=9, King=999
           e0 = (WhiteTotal) - (BlackTotal)
+          positive score favors White, negative score favors Black
         """
+        #Initialize scores for White and Black
         white_score = 0
         black_score = 0
+
+        #Loop through every row of the board
         for row in game_state["board"]:
-            for cell in row:
-                if cell == 'wp':
+            for cell in row: #Iterate through each cell in the row
+                #Evaluate White pieces
+                if cell == 'wp': #White Pawn
                     white_score += 1
-                elif cell == 'wB':
+                elif cell == 'wB': #White Bishop
                     white_score += 3
-                elif cell == 'wN':
+                elif cell == 'wN': #White Knight
                     white_score += 3
-                elif cell == 'wQ':
+                elif cell == 'wQ': #White Queen
                     white_score += 9
-                elif cell == 'wK':
+                elif cell == 'wK': #White King
                     white_score += 999
-                elif cell == 'bp':
+
+                #Evaluate Black pieces
+                elif cell == 'bp': #Black Pawn
                     black_score += 1
-                elif cell == 'bB':
+                elif cell == 'bB': #Black Bishop
                     black_score += 3
-                elif cell == 'bN':
+                elif cell == 'bN': #Black Knight
                     black_score += 3
-                elif cell == 'bQ':
+                elif cell == 'bQ': #Black Queen
                     black_score += 9
-                elif cell == 'bK':
+                elif cell == 'bK': #Black King
                     black_score += 999
+
+        #Compute heuristic value
         return white_score - black_score
     
     def heuristic_e1(self, game_state):
         """
-        Advanced heuristic e1:
-        Base material values (same as e0) plus positional bonuses:
+        Advanced heuristic e1: Base material values (same as e0) + positional bonuses:
         - Pawns get bonus for advancement toward promotion
         - Knights and Bishops get bonus for central positions
         - Queens get bonus for mobility (number of valid moves)
         - Penalize pieces that are under attack
         """
-        # Base material values (same as e0)
+        #Base material values (same as e0)
         material_score = self.heuristic_e0(game_state)
         
-        # Position and mobility enhancements
+        #Position & mobility score
         positional_score = 0
         
-        # Check attacks on pieces
+        #Get all attacked positions on board
         attacks = self.get_attacked_positions(game_state)
         
-        # Evaluate board position
+        #Evaluate each piece's positional advantage or disadvantage
         for row in range(5):
             for col in range(5):
                 piece = game_state["board"][row][col]
-                if piece == '.':
+                if piece == '.': #skip empty squares
                     continue
                 
-                color = piece[0]  # 'w' or 'b'
-                piece_type = piece[1]  # 'p', 'N', 'B', 'Q', 'K'
-                multiplier = 1 if color == 'w' else -1
+                color = piece[0]  #'w' or 'b'
+                piece_type = piece[1]  #'p', 'N', 'B', 'Q', 'K'
+                multiplier = 1 if color == 'w' else -1 #positive for white, negative for black
                 
-                # Pawn advancement bonus (increasing as they get closer to promotion)
+                #Pawn advancement bonus (closer to promotion = better)
                 if piece_type == 'p':
                     if color == 'w':
-                        # White pawns want to reach row 0 (value increases as row decreases)
+                        #White pawns move upward, row 0 is best
                         advancement_bonus = (4 - row) * 0.2
                     else:
-                        # Black pawns want to reach row 4 (value increases as row increases)
+                        #Black pawns move downward, row 4 is best
                         advancement_bonus = row * 0.2
                     positional_score += advancement_bonus * multiplier
                 
-                # Center control bonus for Knights and Bishops
+                #Center control bonus for Knights and Bishops
                 if piece_type in ['N', 'B']:
-                    # Bonus for being close to center
+                    #Manhattan distance from center (2,2)
                     center_distance = abs(row - 2) + abs(col - 2)
-                    center_bonus = (4 - center_distance) * 0.15
+                    center_bonus = (4 - center_distance) * 0.15 #Closer to center = higher bonus
                     positional_score += center_bonus * multiplier
                 
-                # Mobility bonus for Queens
+                #Mobility bonus for Queens (higher mobility = stronger position)
                 if piece_type == 'Q':
-                    # Temporarily switch turn to calculate Queen's mobility
+                    #Temp switch turn to calculate Queen's possible moves
                     original_turn = game_state["turn"]
                     temp_state = copy.deepcopy(game_state)
-                    temp_state["turn"] = color
+                    temp_state["turn"] = color #set turn to queen's color
                     
                     queen_moves = 0
+                    #count nb of valid moves the Queen can make
                     for end_row in range(5):
                         for end_col in range(5):
                             move = ((row, col), (end_row, end_col))
                             if self.is_valid_move(temp_state, move):
                                 queen_moves += 1
                     
-                    mobility_bonus = queen_moves * 0.1
+                    mobility_bonus = queen_moves * 0.1 #reward for having more available moves
                     positional_score += mobility_bonus * multiplier
                 
-                # Penalty for being under attack
+                #Penalty for being under attack
                 position = (row, col)
-                if position in attacks:
+                if position in attacks: #if this position is under attack
                     attackers = attacks[position]
                     for attacker in attackers:
                         attacker_piece = game_state["board"][attacker[0]][attacker[1]]
-                        # If attacker is from opposite color
+                        #If attacker belongs to opponent
                         if attacker_piece[0] != color:
-                            # Higher penalty for more valuable pieces
                             piece_value = 1 if piece_type == 'p' else 3 if piece_type in ['N', 'B'] else 9 if piece_type == 'Q' else 20
-                            attack_penalty = piece_value * 0.15
+                            attack_penalty = piece_value * 0.15 #Higher penalty for more valuable pieces
                             positional_score -= attack_penalty * multiplier
         
+        #combine material and positional scores
         return material_score + positional_score
 
     def heuristic_e2(self, game_state):
         """
-        Advanced heuristic e2:
-        Builds on e1 and adds:
+        Advanced heuristic e2: Builds on e1 and adds strategic factors:
         - King safety (penalize exposed kings)
         - Piece coordination (bonus for pieces protecting each other)
         - Pawn structure (bonus for connected pawns)
         - Control of central squares
-        - Bonus for having the initiative
+        - Bonus for having the initiative (having the move is an advantage)
         """
-        # Start with e1 evaluation
+        #Start with e1 evaluation (material, position, mobility bonuses)
         base_score = self.heuristic_e1(game_state)
         
-        # Additional strategic considerations
+        #Additional strategic considerations
         strategic_score = 0
         
-        # Get all attacks and defenses
+        #Get all attacks and defenses
         attacks = self.get_attacked_positions(game_state)
         defenses = self.get_defended_positions(game_state)
         
-        # Central control evaluation
+        # ------------------------------------ 1. Central Control Bonus --------------------------------------
         central_squares = [(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)]
         white_central_control = 0
         black_central_control = 0
         
+        #Evaluate control over central squares
         for square in central_squares:
             row, col = square
-            # Count attackers of each color for this square
+            #Count attackers of each color for this square
             white_attackers = sum(1 for pos in attacks.get(square, []) if game_state["board"][pos[0]][pos[1]][0] == 'w')
             black_attackers = sum(1 for pos in attacks.get(square, []) if game_state["board"][pos[0]][pos[1]][0] == 'b')
             
-            # Award points for controlling central squares
+            #Award points for controlling central squares for the side with more attackers
             if white_attackers > black_attackers:
                 white_central_control += 0.15
             elif black_attackers > white_attackers:
@@ -645,27 +653,27 @@ class MiniChess:
         
         strategic_score += white_central_control - black_central_control
         
-        # Evaluate board position with additional metrics
+        # --------------------------------------- 2. King Safety ---------------------------------------------
         for row in range(5):
             for col in range(5):
                 piece = game_state["board"][row][col]
                 if piece == '.':
                     continue
                 
-                color = piece[0]  # 'w' or 'b'
-                piece_type = piece[1]  # 'p', 'N', 'B', 'Q', 'K'
+                color = piece[0]  #'w' or 'b'
+                piece_type = piece[1]  #'p', 'N', 'B', 'Q', 'K'
                 multiplier = 1 if color == 'w' else -1
                 position = (row, col)
                 
-                # King safety
+                #King safety: Penalize kings that are under attack
                 if piece_type == 'K':
-                    # Count attacks near the king
+                    #Count attacks near the king
                     king_zone = []
                     for r in range(max(0, row-1), min(5, row+2)):
                         for c in range(max(0, col-1), min(5, col+2)):
                             king_zone.append((r, c))
                     
-                    # Count enemy attacks in king zone
+                    #Count enemy attacks in king zone
                     enemy_attacks = 0
                     for zone_pos in king_zone:
                         if zone_pos in attacks:
@@ -674,21 +682,20 @@ class MiniChess:
                                 if attacker[0] != color:
                                     enemy_attacks += 1
                     
-                    # Penalize for enemy attacks in king zone
+                    #Higher penalty for more enemy attacks near the king
                     king_safety_penalty = enemy_attacks * 0.2
                     strategic_score -= king_safety_penalty * multiplier
                 
-                # Piece coordination (bonus for defended pieces)
+                # ------------------ 3. Piece Coordination (Defended Pieces Bonus) ---------------------------
                 if position in defenses:
-                    defenders = defenses[position]
-                    friendly_defenders = sum(1 for def_pos in defenders 
-                                            if game_state["board"][def_pos[0]][def_pos[1]][0] == color)
+                    defenders = defenses[position] #get list of pieces defending this position
+                    friendly_defenders = sum(1 for def_pos in defenders if game_state["board"][def_pos[0]][def_pos[1]][0] == color)
                     coordination_bonus = friendly_defenders * 0.1
                     strategic_score += coordination_bonus * multiplier
                 
-                # Pawn structure (connected pawns)
+                # -------------------- 4. Pawn Structure (Connected Pawns Bonus) -----------------------------
                 if piece_type == 'p':
-                    # Check for adjacent pawns of same color
+                    #Check for adjacent pawns of same color
                     adjacent_pawns = 0
                     for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
                         r, c = row + dr, col + dc
@@ -700,7 +707,7 @@ class MiniChess:
                     pawn_structure_bonus = adjacent_pawns * 0.15
                     strategic_score += pawn_structure_bonus * multiplier
         
-        # Initiative bonus (having the move is an advantage)
+        # -------------------- 5. Initiative Bonus (Having the Move) -----------------------------
         if game_state["turn"] == 'white':
             strategic_score += 0.1
         else:
@@ -710,57 +717,61 @@ class MiniChess:
 
     def get_attacked_positions(self, game_state):
         """
-        Helper method to find all positions that are under attack
-        Returns a dictionary mapping positions to lists of attacker positions
+        Helper method: find all positions that are under attack
+        Returns dictionary mapping positions to lists of attacker positions {Keys -> Attacked positions | Values -> list of attacker positions}
         """
         attacks = {}
         
-        # Temporarily set turn to white to check white attacks
+        #Temp set turn to white to check white attacks
         temp_state = copy.deepcopy(game_state)
         temp_state["turn"] = "white"
         
-        # Check white attacks
+        #Loop through every board square (white only)
         for row in range(5):
             for col in range(5):
                 piece = game_state["board"][row][col]
                 if piece != '.' and piece[0] == 'w':
+                    #test all possible moves for white
                     for end_row in range(5):
                         for end_col in range(5):
                             move = ((row, col), (end_row, end_col))
+                            #if move is valid
                             if self.is_valid_move(temp_state, move):
-                                attacked_pos = (end_row, end_col)
+                                attacked_pos = (end_row, end_col) #store attacked position
                                 if attacked_pos not in attacks:
                                     attacks[attacked_pos] = []
-                                attacks[attacked_pos].append((row, col))
+                                attacks[attacked_pos].append((row, col)) #store attacker position
         
-        # Temporarily set turn to black to check black attacks
+        #Temp set turn to black to check black attacks
         temp_state["turn"] = "black"
         
-        # Check black attacks
+        #Loop through every board square (black only)
         for row in range(5):
             for col in range(5):
                 piece = game_state["board"][row][col]
                 if piece != '.' and piece[0] == 'b':
+                    #test all possible moves for black
                     for end_row in range(5):
                         for end_col in range(5):
                             move = ((row, col), (end_row, end_col))
+                            #if move is valid
                             if self.is_valid_move(temp_state, move):
-                                attacked_pos = (end_row, end_col)
+                                attacked_pos = (end_row, end_col) #store attacked position
                                 if attacked_pos not in attacks:
                                     attacks[attacked_pos] = []
-                                attacks[attacked_pos].append((row, col))
+                                attacks[attacked_pos].append((row, col)) #store attacker position
         
         return attacks
 
     def get_defended_positions(self, game_state):
         """
-        Helper method to find all positions that are defended by friendly pieces
-        Returns a dictionary mapping positions to lists of defender positions
+        Helper method: find all positions that are defended by friendly pieces
+        Returns dictionary mapping positions to lists of defender positions
         """
         defenses = {}
-        attacks = self.get_attacked_positions(game_state)
+        attacks = self.get_attacked_positions(game_state) #find all positions that are under attack (helps determine if piece is attacked by a friendly piece (defended))
         
-        # Check if pieces are defended (attacked by friendly pieces)
+        #Check if pieces are defended (attacked by friendly pieces)
         for row in range(5):
             for col in range(5):
                 piece = game_state["board"][row][col]
@@ -770,13 +781,15 @@ class MiniChess:
                 color = piece[0]
                 position = (row, col)
                 
+                #identify friendly defenders
                 if position in attacks:
                     defenders = []
                     for attacker_pos in attacks[position]:
                         attacker = game_state["board"][attacker_pos[0]][attacker_pos[1]]
-                        if attacker[0] == color:  # Same color = defender
+                        if attacker[0] == color: #Same color = defender
                             defenders.append(attacker_pos)
                     
+                    #Store defended pieces
                     if defenders:
                         defenses[position] = defenders
         
@@ -785,9 +798,9 @@ class MiniChess:
     def play(self):
         print(f"\nWelcome to Mini Chess! Game mode: {self.mode}")
         
-        # Continue until max turns reached or game ends (win/draw)
-        #Allow game to continue through the FULL final turn
+        #Continue until max turns reached or game ends (win/draw) | Allow game to continue through the FULL final turn
         while self.turn_count <= self.max_turns or (self.turn_count == self.max_turns + 1 and self.current_game_state["turn"] == "white"):
+            #Display board & current turn
             self.display_board(self.current_game_state)
             current_player = self.current_game_state["turn"]
             print(f"{current_player.capitalize()}'s turn ({self.turn_count}/{self.max_turns})")
@@ -798,11 +811,10 @@ class MiniChess:
             if is_ai_turn:
                 #AI's turn: use AIPlayer to generate move
                 ai_player = AIPlayer(self, self.heuristic_func)
-                
                 print(f"AI thinking (max {self.timeout} seconds)...")
-                move, search_score, time_taken, explored, states_by_depth = ai_player.get_move(self.current_game_state)
+                move, search_score, time_taken, explored, states_by_depth = ai_player.get_move(self.current_game_state) #AI chosen move, Minimax or A-B evaluation, time AI took to decide, states AI analyzed, search breakdown per depth
                 
-                #Update AI stats
+                #Update AI stats (how many states AI analyzed & update dictionary)
                 self.states_explored += explored
                 for depth, count in states_by_depth.items():
                     self.states_by_depth[depth] += count
@@ -810,9 +822,10 @@ class MiniChess:
                 #Calculate heuristic score for logging
                 heuristic_score = self.heuristic_func(self.current_game_state)
                 
+                #Display AI chosen move
                 print(f"AI chooses: {chr(move[0][1] + ord('A'))}{5 - move[0][0]} to {chr(move[1][1] + ord('A'))}{5 - move[1][0]}")
                 
-                # Make the move and log with AI stats
+                #Make the move and log with AI stats
                 new_state = copy.deepcopy(self.current_game_state)
                 self.current_game_state = self.make_move(new_state, move, True, time_taken, heuristic_score, search_score)
                 #Only log here if game isn't going to end (since make_move handles logging for end conditions)
@@ -820,14 +833,16 @@ class MiniChess:
                     self.log_game_state(current_player, move, time_taken, heuristic_score, search_score)
                 
             else:
-                # Human's turn: get input from console
+                #Human's turn: get input from console
                 while True:
+                    #user input
                     move_input = input("Enter your move (e.g., 'B2 B3') or 'exit' to quit: ")
                     
                     if move_input.lower() == 'exit':
                         print("Game exited.")
                         exit(1)
                     
+                    #converts input to a move
                     move = self.parse_input(move_input)
                     if not move:
                         with open(self.log_file, "a") as f:
@@ -835,6 +850,7 @@ class MiniChess:
                         print("Invalid format. Please use format like 'B2 B3'.")
                         continue
                     
+                    #check if move is legal
                     if not self.is_valid_move(self.current_game_state, move):
                         with open(self.log_file, "a") as f:
                             f.write(f"Invalid move attempt by {current_player.capitalize()}: '{move_input}'\n\n")
@@ -850,7 +866,7 @@ class MiniChess:
                         self.log_game_state(current_player, move)
                     break
             
-        # Check if max turns reached
+        #Check if max turns reached
         self.display_board(self.current_game_state)
         print(f"Game ended after {self.max_turns} turns. It's a draw!")
         with open(self.log_file, "a") as f:
